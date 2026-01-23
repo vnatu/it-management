@@ -1,0 +1,9 @@
+package com.cognologix.itmanagement.repository;
+
+import com.cognologix.itmanagement.entity.Ticket;
+import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Optional;
+
+public interface TicketRepository extends JpaRepository<Ticket, Long> {
+    Optional<Ticket> findByTicketNo(String ticketNo);
+}
