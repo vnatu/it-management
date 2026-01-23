@@ -1,7 +1,0 @@
-{
-  "/not-found": "app/not-found.js",
-  "/assets/page": "app/assets/page.js",
-  "/users/page": "app/users/page.js",
-  "/helpdesk/new/page": "app/helpdesk/new/page.js",
-  "/helpdesk/page": "app/helpdesk/page.js"
-}
