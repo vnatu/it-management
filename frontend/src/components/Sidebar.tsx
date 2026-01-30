@@ -15,10 +15,7 @@ const Sidebar = () => {
     ];
 
     return (
-        <div className="flex flex-col h-screen w-64 bg-secondary text-white">
-            <div className="flex items-center justify-center h-20 shadow-md">
-                <h1 className="text-2xl font-bold text-primary">cognologix</h1>
-            </div>
+        <div className="flex flex-col h-full w-64 bg-secondary text-white border-r border-gray-700">
             <nav className="flex-1 px-4 py-8 space-y-2">
                 {menuItems.map((item) => (
                     <Link
