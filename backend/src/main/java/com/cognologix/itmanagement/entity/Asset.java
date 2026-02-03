@@ -7,7 +7,10 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 @Entity
 @Table(name = "assets")
@@ -43,9 +46,39 @@ public class Asset {
     private LocalDate warrantyEnd;
     private BigDecimal price;
     private String vendorInfo;
-    private String location;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "location_id")
+    private Location location;
+
+    @Column(name = "location") // Temporarily map to old column for migration
+    private String oldLocation;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    private LocalDate allocationDate;
+
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> technicalSpecs;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "asset_tags", joinColumns = @JoinColumn(name = "asset_id"), inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    private Set<Tag> tags = new HashSet<>();
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

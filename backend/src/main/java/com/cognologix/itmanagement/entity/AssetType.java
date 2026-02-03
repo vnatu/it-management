@@ -1,5 +1,6 @@
 package com.cognologix.itmanagement.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -21,4 +22,8 @@ public class AssetType {
     private String name;
 
     private String description;
+
+    @OneToMany(mappedBy = "assetType", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private java.util.List<AssetAttributeDefinition> attributeDefinitions;
 }

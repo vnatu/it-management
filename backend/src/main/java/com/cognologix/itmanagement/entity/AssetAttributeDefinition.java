@@ -15,9 +15,13 @@ public class AssetAttributeDefinition {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", nullable = false)
+    @JoinColumn(name = "asset_type_id", nullable = false)
     @JsonBackReference
-    private AssetCategory category;
+    private AssetType assetType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AttributeSection section;
 
     @Column(nullable = false)
     private String name;

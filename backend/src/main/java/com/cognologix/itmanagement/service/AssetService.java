@@ -37,11 +37,11 @@ public class AssetService {
     }
 
     private void validateAttributes(Asset asset) {
-        if (asset.getType() == null || asset.getType().getCategory() == null) {
+        if (asset.getType() == null) {
             return;
         }
 
-        List<AssetAttributeDefinition> definitions = asset.getType().getCategory().getAttributeDefinitions();
+        List<AssetAttributeDefinition> definitions = asset.getType().getAttributeDefinitions();
         if (definitions == null || definitions.isEmpty()) {
             return;
         }
@@ -50,8 +50,8 @@ public class AssetService {
         for (AssetAttributeDefinition def : definitions) {
             if (def.isRequired()
                     && (specs == null || !specs.containsKey(def.getName()) || specs.get(def.getName()) == null)) {
-                throw new RuntimeException("Attribute '" + def.getName() + "' is required for category "
-                        + asset.getType().getCategory().getName());
+                throw new RuntimeException("Attribute '" + def.getName() + "' is required for type "
+                        + asset.getType().getName());
             }
         }
     }

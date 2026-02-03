@@ -1,10 +1,10 @@
 package com.cognologix.itmanagement.entity;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
 
 @Entity
 @Table(name = "asset_categories")
@@ -23,7 +23,7 @@ public class AssetCategory {
     @Enumerated(EnumType.STRING)
     private CategoryType type; // IT, NON_IT
 
-    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
-    private List<AssetAttributeDefinition> attributeDefinitions;
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "category_tags", joinColumns = @JoinColumn(name = "category_id"), inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    private Set<Tag> tags = new HashSet<>();
 }

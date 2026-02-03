@@ -16,10 +16,6 @@ public class AssetCategoryService {
     }
 
     public AssetCategory saveCategory(AssetCategory category) {
-        // Link attributes to category before saving if needed
-        if (category.getAttributeDefinitions() != null) {
-            category.getAttributeDefinitions().forEach(attr -> attr.setCategory(category));
-        }
         return categoryRepository.save(category);
     }
 
