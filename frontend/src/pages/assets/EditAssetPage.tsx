@@ -1,22 +1,25 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import TagPicker from "@/components/TagPicker";
 
 export default function EditAssetPage() {
     const { id } = useParams();
-    const router = useRouter();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [formData, setFormData] = useState<any>(null);
+    const [allTags, setAllTags] = useState<any[]>([]);
+    const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
 
     useEffect(() => {
-        fetch(`http://localhost:8080/api/assets/${id}`)
-            .then((res) => res.json())
-            .then((data) => {
-                setFormData(data);
-                setLoading(false);
-            });
+        Promise.all([
+            fetch(`http://localhost:8080/api/assets/${id}`).then(res => res.json()),
+            fetch(`http://localhost:8080/api/tags`).then(res => res.json())
+        ]).then(([assetData, tagData]) => {
+            setFormData(assetData);
+            setAllTags(tagData);
+            setSelectedTagIds(assetData.tags?.map((t: any) => t.id) || []);
+            setLoading(false);
+        });
     }, [id]);
 
     const handleSpecChange = (name: string, value: any) => {
@@ -28,13 +31,18 @@ export default function EditAssetPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        const payload = {
+            ...formData,
+            tags: selectedTagIds.map(id => ({ id }))
+        };
+
         const res = await fetch(`http://localhost:8080/api/assets/${id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
+            body: JSON.stringify(payload),
         });
         if (res.ok) {
-            router.push(`/assets/${id}`);
+            navigate(`/assets/${id}`);
         } else {
             alert("Error updating asset");
         }
@@ -102,6 +110,17 @@ export default function EditAssetPage() {
                     </div>
                 </div>
 
+                <div className="pt-4 border-t border-gray-100">
+                    <TagPicker
+                        allTags={allTags}
+                        selectedTagIds={selectedTagIds}
+                        onToggle={(id) => setSelectedTagIds(prev =>
+                            prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
+                        )}
+                        label="Asset Tags"
+                    />
+                </div>
+
                 {formData.type?.category?.attributeDefinitions?.length > 0 && (
                     <div className="pt-4 border-t border-gray-100">
                         <h3 className="text-lg font-medium mb-4 text-gray-800">Technical Specifications</h3>
@@ -127,7 +146,7 @@ export default function EditAssetPage() {
                 <div className="pt-6 flex justify-end space-x-4">
                     <button
                         type="button"
-                        onClick={() => router.back()}
+                        onClick={() => navigate(-1)}
                         className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                     >
                         Cancel

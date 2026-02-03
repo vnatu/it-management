@@ -1,7 +1,5 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 
 interface User {
     id: number;
@@ -33,7 +31,7 @@ export default function UsersPage() {
             <div className="flex justify-between items-center mb-8">
                 <h1 className="text-3xl font-bold text-gray-800">User Management</h1>
                 <Link
-                    href="/users/new"
+                    to="/users/new"
                     className="bg-primary hover:bg-orange-600 text-white px-6 py-2 rounded-lg shadow-sm transition-colors"
                 >
                     + Add User

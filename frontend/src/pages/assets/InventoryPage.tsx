@@ -1,7 +1,5 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import {
     Plus,
     ArrowRight,
@@ -11,8 +9,16 @@ import {
     MoreVertical,
     Layers,
     ChevronUp,
-    ChevronDown
+    ChevronDown,
+    ArrowRightCircle
 } from "lucide-react";
+import AllocationModal from "@/components/assets/AllocationModal";
+
+interface Tag {
+    id: number;
+    name: string;
+    color: string;
+}
 
 interface Asset {
     id: number;
@@ -22,56 +28,119 @@ interface Asset {
     serialNo: string;
     status: string;
     price: number;
-    location: string;
+    location: {
+        id: number;
+        name: string;
+    };
+    description: string;
     purchaseDate: string;
     warrantyEnd: string;
+    allocationDate: string;
+    updatedAt: string;
     type: {
         name: string;
+        category: {
+            id: number;
+            name: string;
+            tags: Tag[];
+        }
     };
     assignedTo?: {
         fullName: string;
     };
+    tags: Tag[];
 }
 
 export default function AssetsPage() {
     const [assets, setAssets] = useState<Asset[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('Mobile Assets');
+    const [groupTags, setGroupTags] = useState<Tag[]>([]);
+    const [activeTab, setActiveTab] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedFilterTags, setSelectedFilterTags] = useState<number[]>([]);
+    const [isAllocModalOpen, setIsAllocModalOpen] = useState(false);
+    const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
 
-    const tabs = ['Mobile Assets', 'Fixed Assets', 'Licenses', 'Cloud Accounts'];
+    const fetchAssets = () => {
+        setLoading(true);
+        Promise.all([
+            fetch("http://localhost:8080/api/assets").then(res => res.json()),
+            fetch("http://localhost:8080/api/tags?isGroup=true").then(res => res.json())
+        ]).then(([assetData, tagData]) => {
+            setAssets(assetData);
+            setGroupTags(tagData);
+            setLoading(false);
+        }).catch((err) => {
+            console.error("Error fetching inventory data:", err);
+            setLoading(false);
+        });
+    };
 
     useEffect(() => {
-        fetch("http://localhost:8080/api/assets")
-            .then((res) => res.json())
-            .then((data) => {
-                setAssets(data);
-                setLoading(false);
-            })
-            .catch((err) => {
-                console.error("Error fetching assets:", err);
-                setLoading(false);
-            });
+        fetchAssets();
     }, []);
+
+    const filteredAssets = assets.filter(asset => {
+        // Tab Filtering (Group Tags on Category)
+        if (activeTab !== 'All') {
+            const hasGroupTag = asset.type?.category?.tags?.some(tag => tag.name === activeTab);
+            if (!hasGroupTag) return false;
+        }
+
+        // Search Query
+        const searchMatch = !searchQuery ||
+            asset.assetCustomId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            asset.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            asset.type?.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+        if (!searchMatch) return false;
+
+        // Tag Filter (Asset Tags)
+        if (selectedFilterTags.length > 0) {
+            const hasAllTags = selectedFilterTags.every(tagId =>
+                asset.tags?.some(t => t.id === tagId)
+            );
+            if (!hasAllTags) return false;
+        }
+
+        return true;
+    });
 
     const getStatusColor = (status: string) => {
         switch (status.toUpperCase()) {
+            case 'AVAILABLE': return 'text-green-500';
             case 'ALLOCATED': return 'text-orange-500';
-            case 'AVAILABLE':
-            case 'AVAILABLE FOR ALLOCATION': return 'text-green-500';
+            case 'UNDER_REPAIR': return 'text-yellow-600';
+            case 'TRANSIT': return 'text-blue-500';
             case 'DECOMMISSIONED':
-            case 'DEFECTIVE': return 'text-red-500';
-            case 'IN-ACTIVE': return 'text-gray-400';
+            case 'DEFECTIVE':
+            case 'DISPOSED':
+            case 'LOST_STOLEN': return 'text-red-500';
+            case 'IN_ACTIVE': return 'text-gray-400';
             default: return 'text-gray-600';
         }
     };
 
     const formatPrice = (price: number) => {
+        if (!price) return 'Rs. 0';
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 0
         }).format(price).replace('₹', 'Rs. ');
+    };
+
+    const formatDate = (dateString: string) => {
+        if (!dateString) return 'NA';
+        try {
+            return new Date(dateString).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric'
+            });
+        } catch (e) {
+            return dateString;
+        }
     };
 
     return (
@@ -81,7 +150,7 @@ export default function AssetsPage() {
                 <div>
                     <div className="flex items-baseline gap-4 mb-2">
                         <h1 className="text-4xl font-extrabold text-gray-900">Inventory</h1>
-                        <Link href="/helpdesk">
+                        <Link to="/helpdesk">
                             <span className="text-sm font-bold text-orange-500 underline decoration-2 underline-offset-4 cursor-pointer">
                                 IT Helpdesk
                             </span>
@@ -96,7 +165,7 @@ export default function AssetsPage() {
                         <span className="text-[11px] font-bold text-green-700 uppercase tracking-tighter">Inventory</span>
                     </button>
 
-                    <Link href="/assets/new">
+                    <Link to="/assets/new">
                         <button className="flex flex-col items-center justify-center bg-[#F26522] hover:bg-orange-600 text-white px-6 py-2 rounded-lg transition-all shadow-lg hover:shadow-orange-200">
                             <Plus size={20} className="mb-1" />
                             <span className="text-[11px] font-bold uppercase tracking-tighter">Add Asset</span>
@@ -116,17 +185,26 @@ export default function AssetsPage() {
             </div>
 
             {/* Category Tabs */}
-            <div className="flex gap-4 mb-8">
-                {tabs.map((tab) => (
+            <div className="flex gap-4 mb-8 overflow-x-auto pb-2">
+                <button
+                    onClick={() => setActiveTab('All')}
+                    className={`px-8 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'All'
+                        ? 'bg-gray-900 text-white shadow-xl translate-y-[-2px]'
+                        : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100'
+                        }`}
+                >
+                    All Assets
+                </button>
+                {groupTags.map((tag) => (
                     <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === tab
-                                ? 'bg-gray-900 text-white shadow-xl translate-y-[-2px]'
-                                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100'
+                        key={tag.id}
+                        onClick={() => setActiveTab(tag.name)}
+                        className={`px-8 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === tag.name
+                            ? 'bg-gray-900 text-white shadow-xl translate-y-[-2px]'
+                            : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100'
                             }`}
                     >
-                        {tab}
+                        {tag.name} Assets
                     </button>
                 ))}
             </div>
@@ -199,26 +277,52 @@ export default function AssetsPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                assets.map((asset) => (
+                                filteredAssets.map((asset) => (
                                     <tr key={asset.id} className="hover:bg-gray-50/50 transition-colors group">
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-900">{asset.type.name}</td>
+                                        <td className="px-6 py-5">
+                                            <div>
+                                                <p className="text-[13px] font-bold text-gray-900">{asset.type?.name}</p>
+                                                <div className="flex flex-wrap gap-1 mt-1">
+                                                    {asset.tags?.map(tag => (
+                                                        <span
+                                                            key={tag.id}
+                                                            className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter text-white"
+                                                            style={{ backgroundColor: tag.color }}
+                                                        >
+                                                            {tag.name}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </td>
                                         <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.brand}</td>
                                         <td className="px-6 py-5 text-[13px] font-bold text-gray-900">{asset.assetCustomId}</td>
                                         <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{formatPrice(asset.price)}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500 max-w-xs truncate">{asset.modelNo} - {asset.serialNo}</td>
+                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500 max-w-xs truncate" title={asset.description}>{asset.description || 'NA'}</td>
                                         <td className={`px-6 py-5 text-[12px] font-black underline decoration-2 underline-offset-4 ${getStatusColor(asset.status)}`}>
                                             {asset.status}
                                         </td>
                                         <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.assignedTo?.fullName || 'NA'}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.assignedTo ? '10 Oct 2022' : 'NA'}</td>
+                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{formatDate(asset.allocationDate)}</td>
                                         <td className="px-6 py-5 text-[13px] font-bold text-gray-500">SER#12345678</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">10 Oct 2022</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.warrantyEnd || 'NA'}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.location || 'NA'}</td>
+                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{formatDate(asset.updatedAt)}</td>
+                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{formatDate(asset.warrantyEnd)}</td>
+                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.location?.name || 'NA'}</td>
                                         <td className="px-6 py-5 text-right">
-                                            <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
-                                                <MoreVertical size={18} className="text-gray-400" />
-                                            </button>
+                                            <div className="flex justify-end gap-2">
+                                                {asset.status === 'AVAILABLE' && (
+                                                    <button
+                                                        onClick={() => { setSelectedAsset(asset); setIsAllocModalOpen(true); }}
+                                                        className="p-1.5 hover:bg-orange-50 rounded-lg transition-colors text-orange-500"
+                                                        title="Allocate Asset"
+                                                    >
+                                                        <ArrowRightCircle size={18} />
+                                                    </button>
+                                                )}
+                                                <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                                                    <MoreVertical size={18} className="text-gray-400" />
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -227,6 +331,15 @@ export default function AssetsPage() {
                     </table>
                 </div>
             </div>
+
+            {selectedAsset && (
+                <AllocationModal
+                    asset={selectedAsset}
+                    isOpen={isAllocModalOpen}
+                    onClose={() => setIsAllocModalOpen(false)}
+                    onSuccess={fetchAssets}
+                />
+            )}
         </div>
     );
 }

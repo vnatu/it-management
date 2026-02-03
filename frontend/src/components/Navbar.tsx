@@ -1,14 +1,12 @@
-"use client";
-
 import React from 'react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 
 const Navbar = () => {
     return (
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 z-30">
             {/* Left: Logo */}
             <div className="flex items-center">
-                <Link href="/">
+                <Link to="/">
                     <img
                         src="/cglx-full-logo.svg"
                         alt="Cognologix Logo"
@@ -19,7 +17,7 @@ const Navbar = () => {
 
             {/* Right: Actions and Profile */}
             <div className="flex items-center gap-8">
-                <Link href="/reports">
+                <Link to="/reports">
                     <span className="text-sm font-semibold text-gray-700 hover:text-primary transition-colors cursor-pointer">
                         Reports
                     </span>
