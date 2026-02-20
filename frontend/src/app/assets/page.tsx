@@ -11,8 +11,25 @@ import {
     MoreVertical,
     Layers,
     ChevronUp,
-    ChevronDown
+    ChevronDown,
+    MapPin,
+    Tag as TagIcon
 } from "lucide-react";
+import TagPicker from "@/components/TagPicker";
+
+interface Tag {
+    id: number;
+    name: string;
+    color: string;
+    isSystem: boolean;
+    isGroupTag: boolean;
+}
+
+interface Location {
+    id: number;
+    name: string;
+    code: string;
+}
 
 interface Asset {
     id: number;
@@ -22,7 +39,7 @@ interface Asset {
     serialNo: string;
     status: string;
     price: number;
-    location: string;
+    location: Location | null;
     purchaseDate: string;
     warrantyEnd: string;
     type: {
@@ -31,42 +48,67 @@ interface Asset {
     assignedTo?: {
         fullName: string;
     };
+    tags: Tag[];
 }
 
 export default function AssetsPage() {
     const [assets, setAssets] = useState<Asset[]>([]);
+    const [allTags, setAllTags] = useState<Tag[]>([]);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('Mobile Assets');
+    const [activeTab, setActiveTab] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
-
-    const tabs = ['Mobile Assets', 'Fixed Assets', 'Licenses', 'Cloud Accounts'];
+    const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
 
     useEffect(() => {
-        fetch("http://localhost:8080/api/assets")
-            .then((res) => res.json())
-            .then((data) => {
-                setAssets(data);
+        const fetchData = async () => {
+            try {
+                const [assetsRes, tagsRes] = await Promise.all([
+                    fetch("http://localhost:8080/api/assets"),
+                    fetch("http://localhost:8080/api/tags")
+                ]);
+                if (assetsRes.ok) setAssets(await assetsRes.json());
+                if (tagsRes.ok) setAllTags(await tagsRes.json());
+            } catch (err) {
+                console.error("Error fetching data:", err);
+            } finally {
                 setLoading(false);
-            })
-            .catch((err) => {
-                console.error("Error fetching assets:", err);
-                setLoading(false);
-            });
+            }
+        };
+        fetchData();
     }, []);
 
+    const groupTags = allTags.filter(t => t.isGroupTag);
+    const tabs = ['All', ...groupTags.map(t => t.name)];
+
+    const filteredAssets = assets.filter(asset => {
+        const matchesSearch =
+            asset.assetCustomId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            asset.brand?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            asset.modelNo?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesTab = activeTab === 'All' ||
+            asset.tags.some(t => t.name === activeTab);
+
+        const matchesTags = selectedTagIds.length === 0 ||
+            selectedTagIds.every(id => asset.tags.some(t => t.id === id));
+
+        return matchesSearch && matchesTab && matchesTags;
+    });
+
     const getStatusColor = (status: string) => {
-        switch (status.toUpperCase()) {
-            case 'ALLOCATED': return 'text-orange-500';
-            case 'AVAILABLE':
-            case 'AVAILABLE FOR ALLOCATION': return 'text-green-500';
-            case 'DECOMMISSIONED':
-            case 'DEFECTIVE': return 'text-red-500';
-            case 'IN-ACTIVE': return 'text-gray-400';
-            default: return 'text-gray-600';
+        switch (status?.toUpperCase()) {
+            case 'AVAILABLE': return 'text-green-500 bg-green-50 border-green-100';
+            case 'ALLOCATED': return 'text-blue-500 bg-blue-50 border-blue-100';
+            case 'UNDER_REPAIR': return 'text-orange-500 bg-orange-50 border-orange-100';
+            case 'DEFECTIVE': return 'text-red-500 bg-red-50 border-red-100';
+            case 'TRANSIT': return 'text-purple-500 bg-purple-50 border-purple-100';
+            case 'DECOMMISSIONED': return 'text-gray-500 bg-gray-50 border-gray-100';
+            default: return 'text-gray-500 bg-gray-50 border-gray-100';
         }
     };
 
     const formatPrice = (price: number) => {
+        if (!price) return 'N/A';
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
@@ -75,55 +117,41 @@ export default function AssetsPage() {
     };
 
     return (
-        <div className="max-w-[1600px] mx-auto">
+        <div className="max-w-[1600px] mx-auto pb-20">
             {/* Header Section */}
             <div className="flex justify-between items-end mb-8">
                 <div>
-                    <div className="flex items-baseline gap-4 mb-2">
-                        <h1 className="text-4xl font-extrabold text-gray-900">Inventory</h1>
+                    <h1 className="text-3xl font-black text-gray-900 tracking-tight mb-2">Inventory</h1>
+                    <div className="flex items-center gap-2">
+                        <span className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Global Assets</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-gray-200"></div>
                         <Link href="/helpdesk">
-                            <span className="text-sm font-bold text-orange-500 underline decoration-2 underline-offset-4 cursor-pointer">
+                            <span className="text-orange-500 font-bold uppercase text-[10px] tracking-widest hover:underline decoration-2 underline-offset-4 cursor-pointer">
                                 IT Helpdesk
                             </span>
                         </Link>
                     </div>
                 </div>
 
-                {/* Main Action Buttons */}
-                <div className="flex gap-3">
-                    <button className="flex flex-col items-center justify-center bg-white border-b-4 border-green-500 px-6 py-2 rounded-t-lg group">
-                        <Layers size={20} className="text-green-600 mb-1" />
-                        <span className="text-[11px] font-bold text-green-700 uppercase tracking-tighter">Inventory</span>
-                    </button>
-
+                <div className="flex gap-4">
                     <Link href="/assets/new">
-                        <button className="flex flex-col items-center justify-center bg-[#F26522] hover:bg-orange-600 text-white px-6 py-2 rounded-lg transition-all shadow-lg hover:shadow-orange-200">
-                            <Plus size={20} className="mb-1" />
-                            <span className="text-[11px] font-bold uppercase tracking-tighter">Add Asset</span>
+                        <button className="bg-orange-500 hover:bg-orange-600 text-white font-black px-6 py-2.5 rounded-2xl transition-all shadow-lg shadow-orange-500/20 active:scale-95 flex items-center gap-2 uppercase tracking-widest text-xs">
+                            <Plus size={18} strokeWidth={3} />
+                            Add Asset
                         </button>
                     </Link>
-
-                    <button className="flex flex-col items-center justify-center bg-[#FF7F7F] hover:bg-red-400 text-white px-6 py-2 rounded-lg transition-all shadow-lg hover:shadow-red-100">
-                        <ArrowRight size={20} className="mb-1" />
-                        <span className="text-[11px] font-bold uppercase tracking-tighter">Allocate Asset</span>
-                    </button>
-
-                    <button className="flex flex-col items-center justify-center bg-[#D64545] hover:bg-red-700 text-white px-6 py-2 rounded-lg transition-all shadow-lg hover:shadow-red-200">
-                        <X size={20} className="mb-1" />
-                        <span className="text-[11px] font-bold uppercase tracking-tighter">Deallocate Asset</span>
-                    </button>
                 </div>
             </div>
 
-            {/* Category Tabs */}
-            <div className="flex gap-4 mb-8">
+            {/* Dynamic Tabs */}
+            <div className="flex gap-2 mb-8 bg-gray-100/50 p-1.5 rounded-[1.5rem] w-fit border border-gray-100">
                 {tabs.map((tab) => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`px-8 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === tab
-                                ? 'bg-gray-900 text-white shadow-xl translate-y-[-2px]'
-                                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-100'
+                        className={`px-8 py-3 rounded-[1rem] text-xs font-black uppercase tracking-widest transition-all duration-300 ${activeTab === tab
+                            ? 'bg-white text-gray-900 shadow-lg'
+                            : 'text-gray-400 hover:text-gray-600'
                             }`}
                     >
                         {tab}
@@ -132,91 +160,144 @@ export default function AssetsPage() {
             </div>
 
             {/* Main Content Area */}
-            <div className="bg-white rounded-[2rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden min-h-[600px]">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden min-h-[600px]">
                 {/* Search and Table Header */}
-                <div className="p-8 flex justify-between items-center bg-white">
-                    <h2 className="text-xl font-extrabold text-gray-900">{activeTab}</h2>
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                            <input
-                                type="text"
-                                placeholder="Search"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-11 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 w-64 transition-all"
-                            />
+                <div className="p-8 space-y-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                        <div>
+                            <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">{activeTab} Inventory</h2>
+                            <p className="text-gray-400 font-medium text-sm">Showing {filteredAssets.length} assets</p>
                         </div>
-                        <button className="p-2.5 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
-                            <Filter size={20} className="text-gray-600" />
-                        </button>
+
+                        <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
+                            <div className="relative flex-1 md:flex-none">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
+                                <input
+                                    type="text"
+                                    placeholder="Search by ID, Brand, Model..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-12 pr-6 py-3.5 bg-gray-50 border-none rounded-2xl text-sm font-bold focus:ring-4 focus:ring-orange-500/10 w-full md:w-80 transition-all outline-none"
+                                />
+                            </div>
+
+                            <div className="w-full md:w-64">
+                                <TagPicker
+                                    allTags={allTags.filter(t => !t.isGroupTag)}
+                                    selectedTagIds={selectedTagIds}
+                                    onToggle={(id) => setSelectedTagIds(prev =>
+                                        prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
+                                    )}
+                                    label=""
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 {/* Table Section */}
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto scrollbar-hide">
                     <table className="w-full text-left whitespace-nowrap">
                         <thead>
-                            <tr className="border-y border-gray-50">
+                            <tr className="border-y border-gray-50 bg-gray-50/30">
                                 {[
-                                    'Asset Type', 'Brand', 'Asset ID', 'Price', 'Description',
-                                    'Status', 'Allocated To', 'Allocation Date', 'Service Ticket',
-                                    'Last Update', 'Warranty End', 'Location'
+                                    'Asset ID', 'Type', 'Brand / Model', 'Price',
+                                    'Status', 'Tags', 'Location', 'Assigned To'
                                 ].map((head) => (
-                                    <th key={head} className="px-6 py-4">
+                                    <th key={head} className="px-8 py-5">
                                         <div className="flex items-center gap-1 cursor-pointer group">
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 group-hover:text-gray-600">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
                                                 {head}
                                             </span>
                                             <div className="flex flex-col -space-y-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <ChevronUp size={10} className="text-gray-400" />
-                                                <ChevronDown size={10} className="text-gray-400" />
+                                                <ChevronUp size={10} className="text-gray-300" />
+                                                <ChevronDown size={10} className="text-gray-300" />
                                             </div>
                                         </div>
                                     </th>
                                 ))}
-                                <th className="px-6 py-4"></th>
+                                <th className="px-8 py-5"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
                             {loading ? (
                                 Array(5).fill(0).map((_, i) => (
                                     <tr key={i} className="animate-pulse">
-                                        {Array(13).fill(0).map((_, j) => (
-                                            <td key={j} className="px-6 py-6 font-medium">
-                                                <div className="h-4 bg-gray-100 rounded w-full"></div>
+                                        {Array(8).fill(0).map((_, j) => (
+                                            <td key={j} className="px-8 py-6 font-medium">
+                                                <div className="h-4 bg-gray-100 rounded-full w-full"></div>
                                             </td>
                                         ))}
                                     </tr>
                                 ))
-                            ) : assets.length === 0 ? (
+                            ) : filteredAssets.length === 0 ? (
                                 <tr>
-                                    <td colSpan={13} className="px-6 py-24 text-center">
+                                    <td colSpan={9} className="px-8 py-32 text-center">
                                         <div className="flex flex-col items-center">
-                                            <Layers size={48} className="text-gray-200 mb-4" />
-                                            <p className="text-gray-500 font-bold">No assets found in {activeTab}</p>
+                                            <div className="w-20 h-20 bg-gray-50 rounded-[2rem] flex items-center justify-center mb-6 text-gray-200">
+                                                <Layers size={40} />
+                                            </div>
+                                            <h3 className="text-xl font-black text-gray-400 italic uppercase">Empty Space</h3>
+                                            <p className="text-gray-400 font-medium">No assets match your current filters</p>
                                         </div>
                                     </td>
                                 </tr>
                             ) : (
-                                assets.map((asset) => (
-                                    <tr key={asset.id} className="hover:bg-gray-50/50 transition-colors group">
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-900">{asset.type.name}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.brand}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-900">{asset.assetCustomId}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{formatPrice(asset.price)}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500 max-w-xs truncate">{asset.modelNo} - {asset.serialNo}</td>
-                                        <td className={`px-6 py-5 text-[12px] font-black underline decoration-2 underline-offset-4 ${getStatusColor(asset.status)}`}>
-                                            {asset.status}
+                                filteredAssets.map((asset) => (
+                                    <tr key={asset.id} className="hover:bg-gray-50/50 transition-all duration-300 group">
+                                        <td className="px-8 py-6">
+                                            <span className="text-sm font-black text-gray-900 tracking-tight">{asset.assetCustomId}</span>
                                         </td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.assignedTo?.fullName || 'NA'}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.assignedTo ? '10 Oct 2022' : 'NA'}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">SER#12345678</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">10 Oct 2022</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.warrantyEnd || 'NA'}</td>
-                                        <td className="px-6 py-5 text-[13px] font-bold text-gray-500">{asset.location || 'NA'}</td>
-                                        <td className="px-6 py-5 text-right">
-                                            <button className="p-1 hover:bg-gray-100 rounded-full transition-colors">
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+                                                <span className="text-[13px] font-bold text-gray-600">{asset.type.name}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-col">
+                                                <span className="text-[13px] font-black text-gray-900">{asset.brand}</span>
+                                                <span className="text-[11px] font-bold text-gray-400">{asset.modelNo}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <span className="text-[13px] font-black text-orange-500">{formatPrice(asset.price)}</span>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter border ${getStatusColor(asset.status)}`}>
+                                                <div className={`w-1 h-1 rounded-full ${getStatusColor(asset.status).split(' ')[0].replace('text-', 'bg-')}`}></div>
+                                                {asset.status.replace('_', ' ')}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {asset.tags.filter(t => !t.isGroupTag).map(tag => (
+                                                    <span
+                                                        key={tag.id}
+                                                        style={{ color: tag.color }}
+                                                        className="text-[10px] font-black uppercase tracking-tighter"
+                                                    >
+                                                        #{tag.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-2 text-gray-500 font-bold">
+                                                <MapPin size={14} className="text-gray-300" />
+                                                <span className="text-[13px]">{asset.location?.code || asset.location?.name || 'N/A'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-[10px] font-black text-gray-400 uppercase">
+                                                    {asset.assignedTo?.fullName?.charAt(0) || '?'}
+                                                </div>
+                                                <span className="text-[13px] font-bold text-gray-700">{asset.assignedTo?.fullName || 'Unassigned'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-8 py-6 text-right">
+                                            <button className="p-2 hover:bg-gray-100 rounded-xl transition-all opacity-0 group-hover:opacity-100">
                                                 <MoreVertical size={18} className="text-gray-400" />
                                             </button>
                                         </td>

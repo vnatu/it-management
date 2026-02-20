@@ -9,6 +9,68 @@
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
   background: white;
+}
+
+
+
+@layer base {
+  :root {
+    /* Primary Brand Colors */
+    --brand-red: 1 84% 64%;
+    --brand-orange: 24 91% 62%;
+    --brand-slate: 165 4% 34%;
+    --brand-black: 0 0% 14%;
+    --brand-white: 0 0% 100%;
+    --brand-yellow: 46 97% 59%;
+
+    /* Secondary Brand Colors */
+    --brand-green: 122 66% 61%;
+    --brand-purple: 273 96% 59%;
+    --brand-blue: 204 91% 62%;
+    --brand-indigo: 227 85% 64%;
+    --brand-sage: 82 26% 53%;
+
+    /* Shadcn Mapping */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 14%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 14%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 14%;
+    
+    --primary: var(--brand-orange);
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: var(--brand-slate);
+    --secondary-foreground: 0 0% 100%;
+    
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 165 4% 34%;
+    
+    --accent: var(--brand-yellow);
+    --accent-foreground: 0 0% 14%;
+    
+    --destructive: var(--brand-red);
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: var(--brand-orange);
+    
+    --radius: 1rem;
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

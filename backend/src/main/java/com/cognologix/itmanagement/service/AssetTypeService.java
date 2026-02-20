@@ -49,4 +49,29 @@ public class AssetTypeService {
         return typeRepository.save(type);
     }
 
+    public AssetType copyAttributes(Long targetTypeId, Long sourceTypeId) {
+        AssetType source = getTypeById(sourceTypeId);
+        AssetType target = getTypeById(targetTypeId);
+
+        if (target.getAttributeDefinitions() != null) {
+            target.getAttributeDefinitions().clear();
+        } else {
+            target.setAttributeDefinitions(new java.util.ArrayList<>());
+        }
+
+        if (source.getAttributeDefinitions() != null) {
+            source.getAttributeDefinitions().forEach(sourceAttr -> {
+                com.cognologix.itmanagement.entity.AssetAttributeDefinition newAttr = new com.cognologix.itmanagement.entity.AssetAttributeDefinition();
+                newAttr.setName(sourceAttr.getName());
+                newAttr.setDataType(sourceAttr.getDataType());
+                newAttr.setRequired(sourceAttr.isRequired());
+                newAttr.setSection(sourceAttr.getSection());
+                newAttr.setAssetType(target);
+                target.getAttributeDefinitions().add(newAttr);
+            });
+        }
+
+        return typeRepository.save(target);
+    }
+
 }

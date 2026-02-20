@@ -50,4 +50,10 @@ public class AssetConfigurationController {
     public AssetType saveAttributes(@PathVariable Long typeId, @RequestBody List<AssetAttributeDefinition> attributes) {
         return typeService.saveAttributes(typeId, attributes);
     }
+
+    // Copy attributes from one type to another
+    @PostMapping("/asset-types/{typeId}/copy-from/{sourceTypeId}")
+    public AssetType copyAttributes(@PathVariable Long typeId, @PathVariable Long sourceTypeId) {
+        return typeService.copyAttributes(typeId, sourceTypeId);
+    }
 }
